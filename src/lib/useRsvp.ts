@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_WPM, WPM_STEP, clampWpm, wordDelay } from "./rsvp";
 
-export type Mode = "minimal" | "context" | "ticker" | "teleprompter";
-export const MODES: Mode[] = ["minimal", "context", "ticker", "teleprompter"];
+export type Mode = "minimal" | "context" | "ticker" | "teleprompter" | "listen";
+export const MODES: Mode[] = ["minimal", "context", "ticker", "teleprompter", "listen"];
 
 type Persisted = { index: number; wpm: number };
 
@@ -29,10 +29,11 @@ export function useRsvp(words: string[], id: string) {
   const done = index >= words.length;
 
   useEffect(() => {
-    if (!playing || done) return;
+    // In "listen" mode the audio is the clock, not this word timer.
+    if (!playing || done || mode === "listen") return;
     const t = setTimeout(() => setIndex((i) => i + 1), wordDelay(words[index]!, wpm));
     return () => clearTimeout(t);
-  }, [playing, done, index, wpm, words]);
+  }, [playing, done, index, wpm, words, mode]);
 
   // Stop at the end.
   useEffect(() => {

@@ -13,17 +13,20 @@ import { useFlowWindow } from "../lib/useFlowWindow";
 export function VerticalReader({
   words,
   index,
+  highlightEnd,
   variant,
   onPlayFrom,
 }: {
   words: string[];
   index: number;
-  variant: "teleprompter" | "context";
+  highlightEnd?: number; // last word of the active range (Listen highlights a whole sentence)
+  variant: "teleprompter" | "context" | "listen";
   onPlayFrom: (i: number) => void;
 }) {
   const { start, end, shifted } = useFlowWindow(index, words.length, 120, 240, 60);
   const slice = words.slice(start, end);
   const dim = variant === "context";
+  const rangeEnd = highlightEnd ?? index;
 
   const viewRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -54,20 +57,25 @@ export function VerticalReader({
       >
         {slice.map((w, i) => {
           const abs = start + i;
-          const isCur = abs === index;
-          const cls = isCur
-            ? dim
-              ? "text-zinc-500" // current word is shown big in the focal band overlay
-              : "font-semibold text-zinc-50"
-            : `hover:text-zinc-300 ${abs < index ? "opacity-50" : ""}`;
+          const isAnchor = abs === index;
+          const inRange = abs >= index && abs <= rangeEnd;
+          let cls: string;
+          if (variant === "listen") {
+            cls = inRange ? "font-medium text-zinc-50" : `hover:text-zinc-300 ${abs < index ? "opacity-50" : ""}`;
+          } else if (dim) {
+            cls = isAnchor ? "text-zinc-500" : `hover:text-zinc-300 ${abs < index ? "opacity-50" : ""}`;
+          } else {
+            cls = isAnchor ? "font-semibold text-zinc-50" : `hover:text-zinc-300 ${abs < index ? "opacity-50" : ""}`;
+          }
+          const showFocal = isAnchor && variant === "teleprompter";
           return (
             <span
               key={abs}
-              ref={isCur ? curRef : undefined}
+              ref={isAnchor ? curRef : undefined}
               onClick={() => onPlayFrom(abs)}
               className={`cursor-pointer ${cls}`}
             >
-              {isCur && !dim ? <FocalText word={w} /> : w}{" "}
+              {showFocal ? <FocalText word={w} /> : w}{" "}
             </span>
           );
         })}
