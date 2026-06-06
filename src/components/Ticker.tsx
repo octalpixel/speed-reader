@@ -1,12 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
-import { FocalText } from "./Focal";
+import { useFlowWindow } from "../lib/useFlowWindow";
 
-const BEFORE = 40;
-const AFTER = 80;
-
-// News-style horizontal crawl. The current word is pinned at a reading marker
-// (1/3 from the left) and the line glides left one word per beat, so it reads
-// as a continuous ticker. Only a window of words is rendered for performance.
+// News-style horizontal crawl. Text scrolls smoothly leftward at reading speed
+// and you read at the fixed marker — like a real ticker, with no hopping
+// per-word highlight. The render window is stable (see useFlowWindow) so the
+// scroll position is monotonic; edges fade so words ease in and out.
 export function Ticker({
   words,
   index,
@@ -20,46 +18,50 @@ export function Ticker({
   delayMs: number;
   onPlayFrom: (i: number) => void;
 }) {
-  const start = Math.max(0, index - BEFORE);
-  const slice = words.slice(start, index + AFTER);
+  const { start, end, shifted } = useFlowWindow(index, words.length, 60, 120, 30);
+  const slice = words.slice(start, end);
 
   const viewRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const curRef = useRef<HTMLSpanElement>(null);
+  const lastIndexRef = useRef(index);
 
   useLayoutEffect(() => {
     const view = viewRef.current;
     const inner = innerRef.current;
     const cur = curRef.current;
     if (!view || !inner || !cur) return;
+    // Snap when the window or index jumped; otherwise glide over the word's
+    // beat so the crawl is continuous.
+    const jump = shifted || Math.abs(index - lastIndexRef.current) > 1;
+    lastIndexRef.current = index;
     const readX = view.clientWidth / 3;
-    // Glide over the word's own beat while playing; snap instantly when paused
-    // or jumping (click / scrub).
-    inner.style.transitionDuration = playing ? `${Math.min(delayMs, 450)}ms` : "0ms";
+    inner.style.transitionDuration = jump || !playing ? "0ms" : `${Math.min(delayMs, 500)}ms`;
     inner.style.transform = `translateX(${readX - (cur.offsetLeft + cur.offsetWidth / 2)}px)`;
-  }, [index, words, playing, delayMs]);
+  });
 
   return (
     <div className="relative w-full">
-      <div className="pointer-events-none absolute bottom-0 top-0 left-1/3 z-10 w-px bg-red-500/50" />
-      <div ref={viewRef} className="flex h-32 items-center overflow-hidden border-y border-zinc-800">
+      <div className="pointer-events-none absolute bottom-0 top-0 left-1/3 z-10 w-px bg-red-500/40" />
+      <div
+        ref={viewRef}
+        className="flex h-32 items-center overflow-hidden border-y border-zinc-800 [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]"
+      >
         <div
           ref={innerRef}
-          className="whitespace-nowrap font-mono text-4xl ease-linear will-change-transform [transition-property:transform]"
+          data-flow="ticker"
+          className="whitespace-nowrap font-mono text-4xl text-zinc-300 ease-linear will-change-transform [transition-property:transform]"
         >
           {slice.map((w, i) => {
             const abs = start + i;
-            const isCur = abs === index;
             return (
               <span
                 key={abs}
-                ref={isCur ? curRef : undefined}
+                ref={abs === index ? curRef : undefined}
                 onClick={() => onPlayFrom(abs)}
-                className={`inline-block cursor-pointer px-2 ${
-                  isCur ? "font-semibold text-zinc-50" : "text-zinc-600 hover:text-zinc-300"
-                }`}
+                className="inline-block cursor-pointer px-2 hover:text-zinc-50"
               >
-                {isCur ? <FocalText word={w} /> : w}
+                {w}
               </span>
             );
           })}
