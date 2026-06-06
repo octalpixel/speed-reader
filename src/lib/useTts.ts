@@ -23,7 +23,6 @@ export function useTts(words: string[], sentences: Sentence[], opts: Options) {
   const srcRef = useRef<AudioBufferSourceNode | null>(null);
   const playingRef = useRef(false);
   const cache = useRef(new Map<number, AudioBuffer>());
-  const sentRef = useRef(0);
 
   const cfg = useRef(opts);
   cfg.current = opts;
@@ -68,7 +67,6 @@ export function useTts(words: string[], sentences: Sentence[], opts: Options) {
 
   const speak = useCallback(
     async (i: number) => {
-      sentRef.current = i;
       cfg.current.onSentence(sentences[i]!);
       let buf: AudioBuffer | null;
       try {

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Pause, Play, RotateCcw, Volume2, X } from "lucide-react";
-import { MAX_WPM, MIN_WPM, splitOrp, wordDelay } from "../lib/rsvp";
-import { MODES, useRsvp, WPM_STEP, type Mode } from "../lib/useRsvp";
+import { RotateCcw, X } from "lucide-react";
+import { wordDelay } from "../lib/rsvp";
+import { WPM_STEP, useRsvp } from "../lib/useRsvp";
 import { sentenceAt, toSentences } from "../lib/sentences";
 import { MODELS, type TtsModel } from "../lib/tts";
 import { useTts } from "../lib/useTts";
+import { FocalWord } from "./Focal";
 import { Ticker } from "./Ticker";
 import { VerticalReader } from "./VerticalReader";
+import { ReaderHud, TTS_RATE } from "./ReaderHud";
 
 type Props = {
   title: string;
@@ -14,48 +16,6 @@ type Props = {
   id: string;
   onClose: () => void;
 };
-
-const MODE_LABELS: Record<Mode, string> = {
-  minimal: "Minimal",
-  context: "Context",
-  ticker: "Ticker",
-  teleprompter: "Teleprompter",
-  listen: "Listen",
-};
-
-// Map reading speed to the TTS speed range.
-const ttsSpeed = (wpm: number) => Math.max(0.8, Math.min(1.3, 0.6 + wpm / 1000));
-
-// The focal band: the current word pinned on its focal letter between two guide
-// lines. A 1fr/auto/1fr grid keeps the focal column dead-center.
-function FocalWord({ word }: { word: string }) {
-  return (
-    <div className="w-full max-w-3xl">
-      <div className="guide guide-top">
-        <span className="guide-tick" />
-      </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-baseline py-6 font-mono text-5xl font-semibold tracking-tight sm:text-6xl">
-        <FocalBandWord word={word} />
-      </div>
-      <div className="guide guide-bottom">
-        <span className="guide-tick" />
-      </div>
-    </div>
-  );
-}
-
-function FocalBandWord({ word }: { word: string }) {
-  // before / focal / after across the three grid columns so the focal letter
-  // lands exactly on the center notch.
-  const { before, focal, after } = splitOrp(word);
-  return (
-    <>
-      <span className="pr-px text-right text-zinc-100">{before}</span>
-      <span className="text-center text-red-500">{focal}</span>
-      <span className="pl-px text-left text-zinc-100">{after}</span>
-    </>
-  );
-}
 
 export function Reader({ title, words, id, onClose }: Props) {
   const r = useRsvp(words, id);
@@ -65,22 +25,21 @@ export function Reader({ title, words, id, onClose }: Props) {
   const sentences = useMemo(() => toSentences(words), [words]);
   const [modelId, setModelId] = useState<TtsModel["id"]>("supertonic");
   const [voice, setVoice] = useState(MODELS.supertonic.voices[0]!.id);
+  const [rate, setRate] = useState(TTS_RATE.default);
   const curSentence = sentenceAt(sentences, r.index);
-  const tts = useTts(words, sentences, {
-    modelId,
-    voice,
-    speed: ttsSpeed(r.wpm),
-    onSentence: (s) => r.seek(s.start),
-  });
-  const listenToggle = () => tts.toggle(curSentence);
+  const tts = useTts(words, sentences, { modelId, voice, speed: rate, onSentence: (s) => r.seek(s.start) });
+
+  // One playback selection so the rest of the UI never branches on mode.
+  const isListen = r.mode === "listen";
+  const isPlaying = isListen ? tts.speaking : r.playing;
+  const togglePlay = () => (isListen ? tts.toggle(curSentence) : r.toggle());
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       switch (e.key) {
         case " ":
           e.preventDefault();
-          if (r.mode === "listen") tts.toggle(curSentence);
-          else r.toggle();
+          togglePlay();
           break;
         case "ArrowRight":
           r.changeWpm(WPM_STEP);
@@ -115,9 +74,8 @@ export function Reader({ title, words, id, onClose }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [r, onClose, tts, curSentence]);
-
-  const pct = words.length ? Math.round((Math.min(r.index + 1, words.length) / words.length) * 100) : 0;
+    // togglePlay closes over the latest mode/index, so depend on its inputs.
+  }, [r, onClose, tts, curSentence, isListen]);
 
   return (
     <div className="flex h-dvh flex-col bg-zinc-950 text-zinc-200">
@@ -170,7 +128,7 @@ export function Reader({ title, words, id, onClose }: Props) {
           />
         )}
 
-        {r.done && r.mode !== "listen" && (
+        {r.done && !isListen && (
           <button
             onClick={r.restart}
             className="absolute bottom-28 z-20 flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700"
@@ -181,118 +139,13 @@ export function Reader({ title, words, id, onClose }: Props) {
       </main>
 
       {r.showHud && (
-        <footer className="flex flex-col gap-3 px-4 pb-6 pt-2 sm:px-8">
-          {/* Mode selector */}
-          <div className="flex justify-center gap-1">
-            {MODES.map((m) => (
-              <button
-                key={m}
-                onClick={() => r.setMode(m)}
-                className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                  r.mode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                }`}
-              >
-                {MODE_LABELS[m]}
-              </button>
-            ))}
-          </div>
-
-          <input
-            type="range"
-            min={0}
-            max={Math.max(0, words.length - 1)}
-            value={Math.min(r.index, words.length - 1)}
-            onChange={(e) => r.seek(Number(e.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded bg-zinc-800 accent-red-500"
-            aria-label="Scrub position"
-          />
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <button
-              onClick={r.mode === "listen" ? listenToggle : r.toggle}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500"
-              title="Play / pause (space)"
-            >
-              {(r.mode === "listen" ? tts.speaking : r.playing) ? (
-                <Pause size={18} />
-              ) : (
-                <Play size={18} className="translate-x-px" />
-              )}
-            </button>
-
-            {r.mode === "listen" ? (
-              <div className="flex flex-1 items-center gap-2 text-xs">
-                {Object.keys(MODELS).length > 1 && (
-                  <select
-                    value={modelId}
-                    onChange={(e) => {
-                      const id = e.target.value as TtsModel["id"];
-                      setModelId(id);
-                      setVoice(MODELS[id].voices[0]!.id);
-                    }}
-                    className="rounded bg-zinc-800 px-2 py-1 text-zinc-200"
-                    aria-label="Voice model"
-                  >
-                    {Object.values(MODELS).map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <select
-                  value={voice}
-                  onChange={(e) => setVoice(e.target.value)}
-                  className="rounded bg-zinc-800 px-2 py-1 text-zinc-200"
-                  aria-label="Voice"
-                >
-                  {MODELS[modelId].voices.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="flex items-center gap-1.5 text-zinc-500">
-                  {tts.status === "loading" && (
-                    <>
-                      <Loader2 size={13} className="animate-spin" /> loading {MODELS[modelId].label} (~
-                      {MODELS[modelId].approxMB} MB)…
-                    </>
-                  )}
-                  {tts.status === "speaking" && (
-                    <>
-                      <Volume2 size={13} /> speaking
-                    </>
-                  )}
-                  {tts.error && <span className="text-red-400">{tts.error}</span>}
-                </span>
-              </div>
-            ) : (
-              <div className="flex flex-1 items-center gap-3">
-                <span className="w-20 tabular-nums text-zinc-400">{r.wpm} wpm</span>
-                <input
-                  type="range"
-                  min={MIN_WPM}
-                  max={MAX_WPM}
-                  step={WPM_STEP}
-                  value={r.wpm}
-                  onChange={(e) => r.setWpm(Number(e.target.value))}
-                  className="h-1 flex-1 cursor-pointer appearance-none rounded bg-zinc-800 accent-green-500"
-                  aria-label="Words per minute"
-                />
-              </div>
-            )}
-
-            <span className="w-28 text-right tabular-nums text-zinc-500">
-              {Math.min(r.index + 1, words.length)}/{words.length} · {pct}%
-            </span>
-          </div>
-
-          <p className="text-center text-xs text-zinc-600">
-            {r.mode === "listen"
-              ? "space play/pause · pick a voice · click a sentence to read from there · m mode · esc close"
-              : "space play · ←/→ speed · ↑/↓ or scroll to scrub · click a word to start there · m mode · esc close"}
-          </p>
-        </footer>
+        <ReaderHud
+          r={r}
+          wordsLength={words.length}
+          isPlaying={isPlaying}
+          onTogglePlay={togglePlay}
+          listen={{ voice, setVoice, modelId, setModelId, rate, setRate, status: tts.status, error: tts.error }}
+        />
       )}
     </div>
   );

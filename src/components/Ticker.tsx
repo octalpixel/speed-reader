@@ -1,10 +1,8 @@
-import { useLayoutEffect, useRef } from "react";
-import { useFlowWindow } from "../lib/useFlowWindow";
+import { useFlowScroll } from "../lib/useFlowScroll";
 
 // News-style horizontal crawl. Text scrolls smoothly leftward at reading speed
 // and you read at the fixed marker — like a real ticker, with no hopping
-// per-word highlight. The render window is stable (see useFlowWindow) so the
-// scroll position is monotonic; edges fade so words ease in and out.
+// per-word highlight. Edges fade so words ease in and out.
 export function Ticker({
   words,
   index,
@@ -18,27 +16,16 @@ export function Ticker({
   delayMs: number;
   onPlayFrom: (i: number) => void;
 }) {
-  const { start, end, shifted } = useFlowWindow(index, words.length, 60, 120, 30);
-  const slice = words.slice(start, end);
-
-  const viewRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const curRef = useRef<HTMLSpanElement>(null);
-  const lastIndexRef = useRef(index);
-
-  useLayoutEffect(() => {
-    const view = viewRef.current;
-    const inner = innerRef.current;
-    const cur = curRef.current;
-    if (!view || !inner || !cur) return;
-    // Snap when the window or index jumped; otherwise glide over the word's
-    // beat so the crawl is continuous.
-    const jump = shifted || Math.abs(index - lastIndexRef.current) > 1;
-    lastIndexRef.current = index;
-    const readX = view.clientWidth / 3;
-    inner.style.transitionDuration = jump || !playing ? "0ms" : `${Math.min(delayMs, 500)}ms`;
-    inner.style.transform = `translateX(${readX - (cur.offsetLeft + cur.offsetWidth / 2)}px)`;
+  const glideMs = playing ? Math.min(delayMs, 500) : 0;
+  const { start, end, viewRef, innerRef, anchorRef } = useFlowScroll(index, words.length, {
+    axis: "x",
+    frac: 1 / 3,
+    glideMs,
+    before: 60,
+    after: 120,
+    margin: 30,
   });
+  const slice = words.slice(start, end);
 
   return (
     <div className="relative w-full">
@@ -57,7 +44,7 @@ export function Ticker({
             return (
               <span
                 key={abs}
-                ref={abs === index ? curRef : undefined}
+                ref={abs === index ? anchorRef : undefined}
                 onClick={() => onPlayFrom(abs)}
                 className="inline-block cursor-pointer px-2 hover:text-zinc-50"
               >
