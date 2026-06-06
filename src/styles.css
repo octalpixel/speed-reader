@@ -1,0 +1,50 @@
+
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #09090b;
+  color: #e4e4e7;
+}
+
+/* Focal band guide lines with an inward-pointing notch at the center,
+   mirroring the terminal reader's ┬ / ┴ ticks. */
+.guide {
+  position: relative;
+  height: 1px;
+  background: #3f3f46;
+}
+.guide-tick {
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  height: 9px;
+  background: #52525b;
+  transform: translateX(-50%);
+}
+.guide-top .guide-tick {
+  top: 0;
+}
+.guide-bottom .guide-tick {
+  bottom: 0;
+}
+
+/* Context mode: surrounding text fades to the background at the edges. */
+.fade-top {
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 95%);
+  mask-image: linear-gradient(to top, #000 10%, transparent 95%);
+}
+.fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 10%, transparent 95%);
+  mask-image: linear-gradient(to bottom, #000 10%, transparent 95%);
+}
