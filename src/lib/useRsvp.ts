@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_WPM, WPM_STEP, clampWpm, wordDelay } from "./rsvp";
 
-export type Mode = "minimal" | "context";
+export type Mode = "minimal" | "context" | "ticker" | "teleprompter";
+export const MODES: Mode[] = ["minimal", "context", "ticker", "teleprompter"];
 
 type Persisted = { index: number; wpm: number };
 
@@ -63,6 +64,14 @@ export function useRsvp(words: string[], id: string) {
 
   const changeWpm = useCallback((delta: number) => setWpm((w) => clampWpm(w + delta)), []);
   const seek = useCallback((i: number) => setIndex(Math.max(0, Math.min(words.length - 1, i))), [words.length]);
+  // Jump to a word and start reading from there (click-to-start).
+  const playFrom = useCallback(
+    (i: number) => {
+      setIndex(Math.max(0, Math.min(words.length - 1, i)));
+      setPlaying(true);
+    },
+    [words.length],
+  );
   const restart = useCallback(() => {
     setIndex(0);
     setPlaying(false);
@@ -80,9 +89,10 @@ export function useRsvp(words: string[], id: string) {
     toggle,
     scrub,
     seek,
+    playFrom,
     restart,
     setMode,
-    toggleMode: () => setMode((m) => (m === "minimal" ? "context" : "minimal")),
+    toggleMode: () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length]!),
     toggleHud: () => setShowHud((s) => !s),
   };
 }

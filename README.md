@@ -18,12 +18,19 @@ WebAssembly — files are never uploaded anywhere.
   has to move.
 - **Live WPM slider** — 100–1000 wpm, applied mid-read. Sentence- and
   clause-ending punctuation and long words get a slightly longer beat.
-- **Two modes** — *minimal* (just the focal word) or *context* (the passage
-  flows around the focal band, fading to the edges). Toggle with `m`.
+- **Four reading modes** (cycle with `m`, or pick from the bar):
+  - *Minimal* — just the focal word.
+  - *Context* — the full sentences sit behind the focal word, dimmed and
+    readable, and scroll with you.
+  - *Ticker* — a news-style horizontal crawl, current word pinned at the
+    reading marker.
+  - *Teleprompter* — full text scrolls upward, the current line centered.
+- **Scroll & click to start anywhere** — scroll the wheel to scrub through the
+  document, or click any word to start reading from there.
 - **Resume where you left off** — position and speed are saved per document in
   `localStorage`.
-- **Keyboard controls** — `space` play/pause, `←`/`→` speed, `↑`/`↓` scrub,
-  `m` context, `r` restart, `esc` close.
+- **Keyboard controls** — `space` play/pause, `←`/`→` speed, `↑`/`↓` or scroll
+  to scrub, `m` mode, `r` restart, `esc` close.
 
 ## How it works
 

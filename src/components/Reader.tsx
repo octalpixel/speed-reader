@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Pause, Play, RotateCcw, X } from "lucide-react";
-import { MAX_WPM, MIN_WPM, splitOrp } from "../lib/rsvp";
-import { useRsvp, WPM_STEP } from "../lib/useRsvp";
+import { MAX_WPM, MIN_WPM, splitOrp, wordDelay } from "../lib/rsvp";
+import { MODES, useRsvp, WPM_STEP, type Mode } from "../lib/useRsvp";
+import { Ticker } from "./Ticker";
+import { VerticalReader } from "./VerticalReader";
 
 type Props = {
   title: string;
@@ -10,24 +12,41 @@ type Props = {
   onClose: () => void;
 };
 
-// The shared focal band: the current word pinned on its focal letter between
-// two guide lines. A 1fr/auto/1fr grid keeps the focal column dead-center.
+const MODE_LABELS: Record<Mode, string> = {
+  minimal: "Minimal",
+  context: "Context",
+  ticker: "Ticker",
+  teleprompter: "Teleprompter",
+};
+
+// The focal band: the current word pinned on its focal letter between two guide
+// lines. A 1fr/auto/1fr grid keeps the focal column dead-center.
 function FocalWord({ word }: { word: string }) {
-  const { before, focal, after } = splitOrp(word);
   return (
     <div className="w-full max-w-3xl">
       <div className="guide guide-top">
         <span className="guide-tick" />
       </div>
       <div className="grid grid-cols-[1fr_auto_1fr] items-baseline py-6 font-mono text-5xl font-semibold tracking-tight sm:text-6xl">
-        <span className="pr-px text-right text-zinc-100">{before}</span>
-        <span className="text-center text-red-500">{focal}</span>
-        <span className="pl-px text-left text-zinc-100">{after}</span>
+        <FocalBandWord word={word} />
       </div>
       <div className="guide guide-bottom">
         <span className="guide-tick" />
       </div>
     </div>
+  );
+}
+
+function FocalBandWord({ word }: { word: string }) {
+  // before / focal / after across the three grid columns so the focal letter
+  // lands exactly on the center notch.
+  const { before, focal, after } = splitOrp(word);
+  return (
+    <>
+      <span className="pr-px text-right text-zinc-100">{before}</span>
+      <span className="text-center text-red-500">{focal}</span>
+      <span className="pl-px text-left text-zinc-100">{after}</span>
+    </>
   );
 }
 
@@ -81,7 +100,6 @@ export function Reader({ title, words, id, onClose }: Props) {
 
   return (
     <div className="flex h-dvh flex-col bg-zinc-950 text-zinc-200">
-      {/* Top bar */}
       <header className="flex items-center justify-between px-4 py-3 text-sm text-zinc-500">
         <span className="truncate">{title}</span>
         <button onClick={onClose} className="rounded p-1 hover:bg-zinc-800 hover:text-zinc-200" title="Close (Esc)">
@@ -89,28 +107,65 @@ export function Reader({ title, words, id, onClose }: Props) {
         </button>
       </header>
 
-      {/* Reading stage */}
-      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-4">
+      {/* Reading stage. Scrolling the wheel scrubs through the document. */}
+      <main
+        className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-4"
+        onWheel={(e) => r.scrub(e.deltaY > 0 ? 3 : -3)}
+      >
+        {r.mode === "minimal" && <FocalWord word={current} />}
+
         {r.mode === "context" && (
-          <ContextPane words={words} index={r.index} side="before" />
+          <>
+            <VerticalReader words={words} index={r.index} variant="context" onPlayFrom={r.playFrom} />
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center">
+              <div className="bg-zinc-950/80 px-6 backdrop-blur-sm">
+                <FocalWord word={current} />
+              </div>
+            </div>
+          </>
         )}
-        <FocalWord word={current} />
-        {r.mode === "context" && (
-          <ContextPane words={words} index={r.index} side="after" />
+
+        {r.mode === "ticker" && (
+          <Ticker
+            words={words}
+            index={r.index}
+            playing={r.playing}
+            delayMs={wordDelay(current, r.wpm)}
+            onPlayFrom={r.playFrom}
+          />
         )}
+
+        {r.mode === "teleprompter" && (
+          <VerticalReader words={words} index={r.index} variant="teleprompter" onPlayFrom={r.playFrom} />
+        )}
+
         {r.done && (
           <button
             onClick={r.restart}
-            className="absolute bottom-28 flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700"
+            className="absolute bottom-28 z-20 flex items-center gap-2 rounded-full bg-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-700"
           >
             <RotateCcw size={15} /> Read again
           </button>
         )}
       </main>
 
-      {/* HUD */}
       {r.showHud && (
         <footer className="flex flex-col gap-3 px-4 pb-6 pt-2 sm:px-8">
+          {/* Mode selector */}
+          <div className="flex justify-center gap-1">
+            {MODES.map((m) => (
+              <button
+                key={m}
+                onClick={() => r.setMode(m)}
+                className={`rounded-full px-3 py-1 text-xs transition-colors ${
+                  r.mode === m ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                }`}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
+
           <input
             type="range"
             min={0}
@@ -149,26 +204,10 @@ export function Reader({ title, words, id, onClose }: Props) {
           </div>
 
           <p className="text-center text-xs text-zinc-600">
-            space play · ←/→ speed · ↑/↓ scrub · m context · r restart · esc close
+            space play · ←/→ speed · ↑/↓ or scroll to scrub · click a word to start there · m mode · esc close
           </p>
         </footer>
       )}
-    </div>
-  );
-}
-
-// Faded run of already-read (before) or upcoming (after) text around the band.
-function ContextPane({ words, index, side }: { words: string[]; index: number; side: "before" | "after" }) {
-  const slice = useMemo(() => {
-    if (side === "before") return words.slice(Math.max(0, index - 60), index);
-    return words.slice(index + 1, index + 61);
-  }, [words, index, side]);
-
-  return (
-    <div
-      className={`pointer-events-none absolute ${side === "before" ? "bottom-1/2 mb-20 fade-top" : "top-1/2 mt-20 fade-bottom"} max-h-[34vh] w-full max-w-2xl overflow-hidden px-2 text-center leading-relaxed text-zinc-600`}
-    >
-      {slice.join(" ")}
     </div>
   );
 }
