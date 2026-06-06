@@ -5,16 +5,13 @@
 // falling back to wasm.
 
 const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
-const KOKORO_CDN = "https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1";
 
 // Route model downloads through our same-origin proxy (see routes/hfproxy/$.ts).
 const proxyBase = () => `${location.origin}/hfproxy`;
 const HF_ORIGIN = "https://huggingface.co/";
 
-// Some libraries (e.g. kokoro-js's bundled transformers) ignore the configured
-// remote host and fetch huggingface.co directly, which fails CORS on some
-// deploy origins. Rewrite those requests to the same-origin proxy at the
-// fetch layer so every library is covered.
+// Belt-and-suspenders: rewrite any direct huggingface.co fetch to the same-
+// origin proxy (fetching HF cross-origin fails CORS on some deploy origins).
 let fetchPatched = false;
 function patchFetch() {
   if (fetchPatched) return;
@@ -36,11 +33,7 @@ function patchFetch() {
 export type Voice = { id: string; label: string };
 
 export type TtsModel = {
-  id: "supertonic" | "kokoro";
-  // "transformers" uses the @huggingface/transformers TTS pipeline; "kokoro"
-  // uses the dedicated kokoro-js library (its architecture isn't in the generic
-  // pipeline's model-type mapping).
-  kind: "transformers" | "kokoro";
+  id: "supertonic";
   modelId: string;
   label: string;
   dtype: string;
@@ -57,7 +50,6 @@ const SUPERTONIC_VOICES: Voice[] = [
 export const MODELS: Record<TtsModel["id"], TtsModel> = {
   supertonic: {
     id: "supertonic",
-    kind: "transformers",
     modelId: "onnx-community/Supertonic-TTS-ONNX",
     label: "Supertonic",
     dtype: "fp32",
@@ -68,23 +60,6 @@ export const MODELS: Record<TtsModel["id"], TtsModel> = {
       num_inference_steps: 5,
       speed,
     }),
-  },
-  kokoro: {
-    id: "kokoro",
-    kind: "kokoro",
-    modelId: "onnx-community/Kokoro-82M-v1.0-ONNX",
-    label: "Kokoro (light)",
-    dtype: "q8",
-    approxMB: 86,
-    voices: [
-      { id: "af_heart", label: "Heart (F)" },
-      { id: "af_bella", label: "Bella (F)" },
-      { id: "am_michael", label: "Michael (M)" },
-      { id: "am_fenrir", label: "Fenrir (M)" },
-      { id: "bf_emma", label: "Emma (F, UK)" },
-      { id: "bm_george", label: "George (M, UK)" },
-    ],
-    buildOptions: (voice) => ({ voice }),
   },
 };
 
@@ -129,26 +104,6 @@ function getPipeline(model: TtsModel, gpu: boolean) {
   return pipelines.get(key)!;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const kokoroInstances = new Map<string, Promise<any>>();
-function getKokoro(model: TtsModel, gpu: boolean) {
-  const key = `${model.modelId}:${gpu ? "gpu" : "wasm"}`;
-  if (!kokoroInstances.has(key)) {
-    kokoroInstances.set(
-      key,
-      (async () => {
-        const mod = await import(/* @vite-ignore */ `${KOKORO_CDN}`);
-        if (mod.env) {
-          mod.env.allowLocalModels = false;
-          mod.env.remoteHost = proxyBase(); // route downloads through our proxy
-        }
-        return mod.KokoroTTS.from_pretrained(model.modelId, { dtype: model.dtype, device: gpu ? "webgpu" : "wasm" });
-      })(),
-    );
-  }
-  return kokoroInstances.get(key)!;
-}
-
 export type SynthResult = { audio: Float32Array; sampleRate: number };
 
 export async function synthesize(
@@ -159,11 +114,6 @@ export async function synthesize(
   speed: number,
 ): Promise<SynthResult> {
   patchFetch();
-  if (model.kind === "kokoro") {
-    const tts = await getKokoro(model, gpu);
-    const out = await tts.generate(text, { voice });
-    return { audio: out.audio as Float32Array, sampleRate: out.sampling_rate as number };
-  }
   const tts = await getPipeline(model, gpu);
   const out = await tts(text, model.buildOptions(voice, speed));
   return { audio: out.audio as Float32Array, sampleRate: out.sampling_rate as number };

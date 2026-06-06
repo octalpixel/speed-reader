@@ -221,22 +221,24 @@ export function Reader({ title, words, id, onClose }: Props) {
 
             {r.mode === "listen" ? (
               <div className="flex flex-1 items-center gap-2 text-xs">
-                <select
-                  value={modelId}
-                  onChange={(e) => {
-                    const id = e.target.value as TtsModel["id"];
-                    setModelId(id);
-                    setVoice(MODELS[id].voices[0]!.id);
-                  }}
-                  className="rounded bg-zinc-800 px-2 py-1 text-zinc-200"
-                  aria-label="Voice model"
-                >
-                  {Object.values(MODELS).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
+                {Object.keys(MODELS).length > 1 && (
+                  <select
+                    value={modelId}
+                    onChange={(e) => {
+                      const id = e.target.value as TtsModel["id"];
+                      setModelId(id);
+                      setVoice(MODELS[id].voices[0]!.id);
+                    }}
+                    className="rounded bg-zinc-800 px-2 py-1 text-zinc-200"
+                    aria-label="Voice model"
+                  >
+                    {Object.values(MODELS).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={voice}
                   onChange={(e) => setVoice(e.target.value)}

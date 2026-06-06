@@ -29,9 +29,8 @@ WebAssembly — files are never uploaded anywhere.
 - **Listen / read-aloud** — synthesizes the document sentence-by-sentence and
   plays it back, highlighting the current sentence and prefetching the next.
   Runs **entirely in the browser on WebGPU** (wasm fallback) via
-  [Supertonic](https://huggingface.co/onnx-community/Supertonic-TTS-ONNX) or the
-  lighter [Kokoro](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX);
-  pick a voice and model. Audio never leaves the device.
+  [Supertonic](https://huggingface.co/onnx-community/Supertonic-TTS-ONNX); pick a
+  voice. Audio never leaves the device.
 - **Scroll & click to start anywhere** — scroll the wheel to scrub through the
   document, or click any word (or sentence, in Listen mode) to start there.
 - **Resume where you left off** — position and speed are saved per document in
@@ -60,7 +59,7 @@ and the Worker stay untouched.
 - [TanStack Start](https://tanstack.com/start) (React 19 + Vite) — SSR app shell
 - Tailwind CSS v4
 - [liteparse](https://github.com/run-llama/liteparse) WASM — in-browser PDF parsing
-- [Transformers.js](https://github.com/huggingface/transformers.js) + [kokoro-js](https://github.com/hexgrad/kokoro) — in-browser WebGPU text-to-speech (loaded from CDN)
+- [Transformers.js](https://github.com/huggingface/transformers.js) — in-browser WebGPU text-to-speech (loaded from CDN)
 - Cloudflare Workers — hosting
 
 ## Development
@@ -80,11 +79,9 @@ bun run deploy     # build + wrangler deploy to Cloudflare Workers
   ported from it.
 - [LiteParse](https://github.com/run-llama/liteparse) by LlamaIndex — the
   WebAssembly PDF parser that powers in-browser PDF reading.
-- [Supertonic](https://huggingface.co/onnx-community/Supertonic-TTS-ONNX) and
-  [Kokoro](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) (via
-  [kokoro-js](https://github.com/hexgrad/kokoro) and
+- [Supertonic](https://huggingface.co/onnx-community/Supertonic-TTS-ONNX) (via
   [Transformers.js](https://github.com/huggingface/transformers.js)) — the
-  in-browser text-to-speech models behind Listen mode.
+  in-browser text-to-speech model behind Listen mode.
 
 ## License
 
