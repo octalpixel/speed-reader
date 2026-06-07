@@ -11,7 +11,7 @@ function Home() {
 
   const parsed = useMemo(() => {
     if (!doc) return null;
-    const isMd = /\.(md|markdown)$/i.test(doc.name);
+    const isMd = doc.markdown ?? /\.(md|markdown)$/i.test(doc.name);
     const words = tokenize(isMd ? stripMarkdown(doc.text) : doc.text);
     return { words, id: docId(doc.name, doc.text) };
   }, [doc]);

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HfproxySplatRouteImport } from './routes/hfproxy/$'
+import { Route as ApiScrapeRouteImport } from './routes/api/scrape'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +23,39 @@ const HfproxySplatRoute = HfproxySplatRouteImport.update({
   path: '/hfproxy/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiScrapeRoute = ApiScrapeRouteImport.update({
+  id: '/api/scrape',
+  path: '/api/scrape',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/scrape': typeof ApiScrapeRoute
   '/hfproxy/$': typeof HfproxySplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/scrape': typeof ApiScrapeRoute
   '/hfproxy/$': typeof HfproxySplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/scrape': typeof ApiScrapeRoute
   '/hfproxy/$': typeof HfproxySplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/hfproxy/$'
+  fullPaths: '/' | '/api/scrape' | '/hfproxy/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/hfproxy/$'
-  id: '__root__' | '/' | '/hfproxy/$'
+  to: '/' | '/api/scrape' | '/hfproxy/$'
+  id: '__root__' | '/' | '/api/scrape' | '/hfproxy/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiScrapeRoute: typeof ApiScrapeRoute
   HfproxySplatRoute: typeof HfproxySplatRoute
 }
 
@@ -65,11 +75,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HfproxySplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/scrape': {
+      id: '/api/scrape'
+      path: '/api/scrape'
+      fullPath: '/api/scrape'
+      preLoaderRoute: typeof ApiScrapeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiScrapeRoute: ApiScrapeRoute,
   HfproxySplatRoute: HfproxySplatRoute,
 }
 export const routeTree = rootRouteImport

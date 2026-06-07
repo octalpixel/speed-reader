@@ -1,8 +1,8 @@
 # Speed Reader
 
 A web app for [RSVP](https://en.wikipedia.org/wiki/Rapid_serial_visual_presentation)
-(Rapid Serial Visual Presentation) speed reading. Upload a **PDF, Markdown, or
-text** file and read it one word at a time — each word flashes in place, pinned
+(Rapid Serial Visual Presentation) speed reading. Read a **web page, PDF,
+Markdown, or text** file one word at a time — each word flashes in place, pinned
 on its focal letter between two guide lines, with a live words-per-minute slider.
 
 **Live:** https://speed-reader.mithushancj.workers.dev
@@ -12,6 +12,10 @@ WebAssembly — files are never uploaded anywhere.
 
 ## Features
 
+- **Read a web page** — paste a URL; the page is scraped to clean markdown
+  server-side (via [Firecrawl](https://firecrawl.dev), so the API key never
+  reaches the browser) and cached locally in IndexedDB for instant, offline
+  re-reads. Recently read pages show as one-click chips.
 - **Upload PDF / `.md` / `.txt`** — drag-and-drop or browse.
 - **Focal-letter alignment** — each word is pinned on its Optimal Recognition
   Point (~30% in), the letter your eye naturally lands on, so your gaze never
@@ -60,9 +64,15 @@ and the Worker stay untouched.
 - Tailwind CSS v4
 - [liteparse](https://github.com/run-llama/liteparse) WASM — in-browser PDF parsing
 - [Transformers.js](https://github.com/huggingface/transformers.js) — in-browser WebGPU text-to-speech (loaded from CDN)
-- Cloudflare Workers — hosting
+- [Firecrawl](https://firecrawl.dev) — web page → markdown, called from a server route so the key stays server-side
+- IndexedDB — local-first cache of fetched web pages
+- Cloudflare Workers — hosting (server routes + static assets)
 
 ## Development
+
+Web scraping needs a [Firecrawl](https://firecrawl.dev) API key. For local dev,
+put it in `.dev.vars` (gitignored): `FIRECRAWL_API_KEY="fc-…"`. For production:
+`wrangler secret put FIRECRAWL_API_KEY`.
 
 ```sh
 bun install
